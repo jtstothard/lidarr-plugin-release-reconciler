@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 PROPS="$(cd "$(dirname "$0")/.." && pwd)/ext/Lidarr/src/Directory.Build.props"
-python3 - <<'PY2'
+python3 - "$PROPS" <<'PY2'
 from pathlib import Path
-p = Path(r'''+str(repo/'ext'/'Lidarr'/'src'/'Directory.Build.props')+''')
+import sys
+p = Path(sys.argv[1])
 text = p.read_text()
 needle = '<AssemblyVersion>10.0.0.*</AssemblyVersion>'
 replacement = '<AssemblyVersion>3.0.0.*</AssemblyVersion>'
