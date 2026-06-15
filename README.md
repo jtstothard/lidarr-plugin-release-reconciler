@@ -8,6 +8,7 @@ This repository uses the Lidarr source tree as a submodule under `ext/Lidarr`.
 
 ```bash
 git submodule update --init --recursive
+./scripts/prepare-lidarr-3x-host-compat.sh
 dotnet build Lidarr.Plugin.ReleaseReconciler.csproj -c Release /p:NuGetAudit=false /p:RunAnalyzers=false /p:RunAnalyzersDuringBuild=false /p:EnableNETAnalyzers=false /p:EnforceCodeStyleInBuild=false /p:TreatWarningsAsErrors=false /p:NoWarn=SA1200%3BNU1902
 ```
 
@@ -20,3 +21,8 @@ Copy the built plugin files into:
 ```
 
 At minimum, deploy the release zip contents there and restart Lidarr.
+
+
+## Compatibility Note
+
+This plugin is built against a patched Lidarr source submodule that emits `AssemblyVersion` `3.0.0.*` for host assemblies. That matches the proven compatibility pattern used by the working Bandcamp/Deezer plugin builds on Lidarr 3.x plugin hosts.

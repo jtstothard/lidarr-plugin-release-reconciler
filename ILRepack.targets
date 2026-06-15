@@ -1,0 +1,19 @@
+<!--
+  Custom release-output cleanup for the ReleaseReconciler plugin.
+  The Lidarr host provides its own framework and host assemblies at runtime,
+  so the published plugin package should stay lean and contain only the plugin
+  payload that must be copied into the plugin directory.
+-->
+<Project>
+  <Target Name="ReleaseReconcilerCleanOutput" AfterTargets="Build" Condition="$(Configuration.Contains('Release'))">
+    <ItemGroup>
+      <_OutputCleanup Include="$(OutputPath)*.dll" Exclude="$(OutputPath)$(TargetName)$(TargetExt)" />
+      <_OutputCleanup Include="$(OutputPath)*.pdb" Exclude="$(OutputPath)$(TargetName).pdb" />
+      <_OutputCleanup Include="$(OutputPath)*.xml" />
+      <_OutputCleanup Include="$(OutputPath)*.json" />
+      <_OutputCleanup Include="$(OutputPath)*.deps.json" />
+    </ItemGroup>
+    <Delete Files="@(_OutputCleanup)" />
+    <RemoveDir Directories="$(OutputPath)Localization" Condition="Exists('$(OutputPath)Localization')" />
+  </Target>
+</Project>
