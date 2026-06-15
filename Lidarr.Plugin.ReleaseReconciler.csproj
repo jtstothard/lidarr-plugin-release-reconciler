@@ -13,14 +13,22 @@
     <NoWarn>$(NoWarn);CS1591;NU1902</NoWarn>
   </PropertyGroup>
 
+
   <ItemGroup>
-    <ProjectReference Include="..\..\ext\Lidarr\src\NzbDrone.Core\Lidarr.Core.csproj">
+    <Compile Remove="ext\Lidarr\**\*.cs" />
+    <EmbeddedResource Remove="ext\Lidarr\**\*" />
+    <None Remove="ext\Lidarr\**\*" />
+    <Content Remove="ext\Lidarr\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="ext\Lidarr\src\NzbDrone.Core\Lidarr.Core.csproj">
       <Private>false</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\ext\Lidarr\src\NzbDrone.Common\Lidarr.Common.csproj">
+    <ProjectReference Include="ext\Lidarr\src\NzbDrone.Common\Lidarr.Common.csproj">
       <Private>false</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\ext\Lidarr\src\Lidarr.Http\Lidarr.Http.csproj">
+    <ProjectReference Include="ext\Lidarr\src\Lidarr.Http\Lidarr.Http.csproj">
       <Private>false</Private>
     </ProjectReference>
   </ItemGroup>
@@ -30,6 +38,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
