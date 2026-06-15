@@ -8,9 +8,9 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
     {
         public string? PublicBaseUrl { get; set; }
 
-        public string? OperatorActionPath { get; set; } = "/content/release-reconciler/action";
+        public string? OperatorActionPath { get; set; } = "/release-reconciler/action/index.html";
 
-        public string? EvidencePagePath { get; set; } = "/content/release-reconciler/evidence";
+        public string? EvidencePagePath { get; set; } = "/release-reconciler/evidence/index.html";
 
         public string? HarmonySearchBaseUrl { get; set; } = "https://api.lidarr.audio/api/v0.4/search";
 
@@ -27,8 +27,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
             return new ReconciliationNotificationSettings
             {
                 PublicBaseUrl = NormalizeOptionalValue(PublicBaseUrl),
-                OperatorActionPath = NormalizePath(OperatorActionPath, "/content/release-reconciler/action"),
-                EvidencePagePath = NormalizePath(EvidencePagePath, "/content/release-reconciler/evidence"),
+                OperatorActionPath = NormalizePath(OperatorActionPath, "/release-reconciler/action/index.html"),
+                EvidencePagePath = NormalizePath(EvidencePagePath, "/release-reconciler/evidence/index.html"),
                 HarmonySearchBaseUrl = NormalizeOptionalValue(HarmonySearchBaseUrl),
                 ActionTokenLifetimeMinutes = Math.Clamp(ActionTokenLifetimeMinutes <= 0 ? 240 : ActionTokenLifetimeMinutes, 5, 7 * 24 * 60),
                 EvidenceTokenLifetimeMinutes = Math.Clamp(EvidenceTokenLifetimeMinutes <= 0 ? 240 : EvidenceTokenLifetimeMinutes, 5, 7 * 24 * 60),
@@ -180,7 +180,19 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
                 normalized = "/" + normalized;
             }
 
-            return normalized.TrimEnd('/');
+            normalized = normalized.TrimEnd('/');
+
+            if (string.Equals(normalized, "/content/release-reconciler/action", StringComparison.OrdinalIgnoreCase))
+            {
+                return "/release-reconciler/action/index.html";
+            }
+
+            if (string.Equals(normalized, "/content/release-reconciler/evidence", StringComparison.OrdinalIgnoreCase))
+            {
+                return "/release-reconciler/evidence/index.html";
+            }
+
+            return normalized;
         }
     }
 }

@@ -15,7 +15,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Actions
     public sealed class ReconciliationOperatorActionMapper : IMapHttpRequestsToDisk
     {
         private static readonly Regex ActionPathRegex = new(
-            "^/Content/release-reconciler/action/(?<token>[A-Za-z0-9_-]+)$",
+            "^/release-reconciler/action/(?<token>[A-Za-z0-9_-]+)/index\\.html$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         private readonly IReconciliationCaseStore _caseStore;
