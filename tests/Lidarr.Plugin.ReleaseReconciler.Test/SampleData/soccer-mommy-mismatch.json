@@ -1,0 +1,53 @@
+{
+  "downloadId": "bc-soccer-mommy-color-theory",
+  "albumUrl": "https://soccermommy.bandcamp.com/album/color-theory",
+  "title": "Soccer Mommy - color theory",
+  "outputPath": "/music/Soccer Mommy/color theory",
+  "queuePhase": "post-extract-review",
+  "queueStatus": "Failed",
+  "errorMessage": "downloaded files diverged from preferred release track mapping",
+  "queuedAtUtc": "2026-06-14T09:00:00Z",
+  "completedAtUtc": "2026-06-14T09:12:00Z",
+  "retagContext": {
+    "artistName": "Soccer Mommy",
+    "artistMusicBrainzId": "c6e5d19d-7c18-44f3-8f58-1468cb2d7cd3",
+    "albumTitle": "color theory",
+    "albumMusicBrainzId": "7d4d7c31-8d66-4b90-a312-4310dcd58e9f",
+    "albumType": "Album",
+    "albumReleaseDateUtc": "2020-02-28T00:00:00Z",
+    "genres": ["indie rock", "bedroom pop"],
+    "preferredRelease": {
+      "releaseMusicBrainzId": "b5f7f0bf-4b9e-4f7d-8a6b-7d7ae0ca1b68",
+      "releaseArtistMusicBrainzId": "c6e5d19d-7c18-44f3-8f58-1468cb2d7cd3",
+      "releaseStatus": "official",
+      "label": "Loma Vista",
+      "releaseDateUtc": "2020-02-28T00:00:00Z",
+      "discCount": 1,
+      "mediaByDisc": {
+        "1": "Digital Media"
+      }
+    },
+    "tracks": [
+      {
+        "absoluteTrackNumber": 1,
+        "mediumNumber": 1,
+        "title": "bloodstream",
+        "recordingMusicBrainzId": "820cd57e-f7f8-4f1b-a3df-8f13bb5e50dd",
+        "releaseTrackMusicBrainzId": "bc3d3319-c329-4ed0-b4d0-7cf30391ec5a"
+      },
+      {
+        "absoluteTrackNumber": 2,
+        "mediumNumber": 1,
+        "title": "circle the drain",
+        "recordingMusicBrainzId": "46502aa0-6b7e-4e90-8aec-f9d6a6381420",
+        "releaseTrackMusicBrainzId": "53a59b1d-1957-4cd3-b4b0-5e609b0af377"
+      },
+      {
+        "absoluteTrackNumber": 3,
+        "mediumNumber": 1,
+        "title": "royal screw up",
+        "recordingMusicBrainzId": "f5379162-79d6-41b6-8cce-37f0f0c435a2"
+      }
+    ]
+  }
+}

@@ -10,6 +10,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
 
         ReconciliationCaseSnapshot? Get(string caseId);
 
+        ReconciliationCaseSnapshot? FindByDownloadId(string sourceSeam, string? downloadId);
+
         IReadOnlyList<ReconciliationCaseSnapshot> List();
     }
 }

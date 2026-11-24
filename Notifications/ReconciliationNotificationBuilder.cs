@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using NLog;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Actions;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Capture;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Cases;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Evidence;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Switching;
@@ -85,8 +86,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
                 normalizedSettings,
                 reconciliationCase.CaseId,
                 capturedIdentifiers,
-                displayArtist,
-                displayAlbum,
+                reconciliationCase.HarmonySourceSupport,
                 evaluation,
                 candidates,
                 evidenceExpiresAtUtc);
@@ -158,8 +158,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
             ReconciliationNotificationSettings settings,
             string caseId,
             IReadOnlyDictionary<string, string?> capturedIdentifiers,
-            string displayArtist,
-            string displayAlbum,
+            HostHarmonySourceSupport? harmonySourceSupport,
             ReconciliationEvaluationResult? evaluation,
             IReadOnlyList<ReconciliationNotificationCandidate> candidates,
             DateTimeOffset evidenceExpiresAtUtc)
@@ -175,7 +174,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
                 evidenceTokenExpiresAtUtc = evidenceExpiresAtUtc;
             }
 
-            links.AddRange(BuildSupplementalEvidenceLinks(settings, capturedIdentifiers, displayArtist, displayAlbum, evaluation, candidates));
+            links.AddRange(BuildSupplementalEvidenceLinks(settings, capturedIdentifiers, harmonySourceSupport, evaluation, candidates));
 
             return new EvidenceLinkBuildResult
             {
@@ -192,35 +191,38 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
         internal static IReadOnlyList<ReconciliationNotificationLink> BuildSupplementalEvidenceLinks(
             ReconciliationNotificationSettings settings,
             IReadOnlyDictionary<string, string?> capturedIdentifiers,
-            string displayArtist,
-            string displayAlbum,
+            HostHarmonySourceSupport? harmonySourceSupport,
             ReconciliationEvaluationResult? evaluation,
             IReadOnlyList<ReconciliationNotificationCandidate> candidates)
         {
             var links = new List<ReconciliationNotificationLink>();
 
-            if (TryGetIdentifier(capturedIdentifiers, "albumUrl", out var albumUrl))
+            if (TryGetBandcampSourceUrl(harmonySourceSupport, capturedIdentifiers, out var albumUrl))
             {
                 links.Add(new ReconciliationNotificationLink { Label = "Bandcamp Source", Url = albumUrl! });
             }
 
             var topCandidate = evaluation?.RankedCandidates.FirstOrDefault();
-            var releaseId = evaluation?.WinnerReleaseMusicBrainzId ?? topCandidate?.ReleaseMusicBrainzId ?? candidates.FirstOrDefault()?.ReleaseMusicBrainzId;
+            var releaseId = evaluation?.WinnerReleaseMusicBrainzId
+                ?? topCandidate?.ReleaseMusicBrainzId
+                ?? candidates.FirstOrDefault()?.ReleaseMusicBrainzId
+                ?? SelectPreferredValue(capturedIdentifiers, "preferredReleaseMusicBrainzId");
             if (!string.IsNullOrWhiteSpace(releaseId))
             {
                 links.Add(new ReconciliationNotificationLink { Label = "MusicBrainz Release", Url = $"https://musicbrainz.org/release/{Uri.EscapeDataString(releaseId!)}" });
             }
 
-            var albumId = evaluation?.WinnerAlbumMusicBrainzId ?? topCandidate?.AlbumMusicBrainzId;
+            var albumId = evaluation?.WinnerAlbumMusicBrainzId
+                ?? topCandidate?.AlbumMusicBrainzId
+                ?? SelectPreferredValue(capturedIdentifiers, "albumMusicBrainzId");
             if (!string.IsNullOrWhiteSpace(albumId))
             {
                 links.Add(new ReconciliationNotificationLink { Label = "MusicBrainz Release Group", Url = $"https://musicbrainz.org/release-group/{Uri.EscapeDataString(albumId!)}" });
             }
 
-            if (!string.IsNullOrWhiteSpace(settings.HarmonySearchBaseUrl))
+            if (TryBuildHarmonySearchUrl(settings, harmonySourceSupport, out var harmonyUrl))
             {
-                var harmonyUrl = BuildHarmonySearchUrl(settings.HarmonySearchBaseUrl!, $"{displayArtist} {displayAlbum}".Trim());
-                links.Add(new ReconciliationNotificationLink { Label = "Harmony Search", Url = harmonyUrl });
+                links.Add(new ReconciliationNotificationLink { Label = "Harmony Search", Url = harmonyUrl! });
             }
 
             return links
@@ -439,6 +441,74 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
 
             value = candidate.Trim();
             return true;
+        }
+
+        private static bool TryBuildHarmonySearchUrl(
+            ReconciliationNotificationSettings settings,
+            HostHarmonySourceSupport? harmonySourceSupport,
+            out string? value)
+        {
+            value = null;
+            if (string.IsNullOrWhiteSpace(settings.HarmonySearchBaseUrl)
+                || !TryGetHarmonyLookupQuery(harmonySourceSupport, out var lookupQuery))
+            {
+                return false;
+            }
+
+            value = BuildHarmonySearchUrl(settings.HarmonySearchBaseUrl!, lookupQuery!);
+            return true;
+        }
+
+        private static bool TryGetHarmonyLookupQuery(HostHarmonySourceSupport? harmonySourceSupport, out string? value)
+        {
+            value = null;
+            if (harmonySourceSupport?.Supported != true)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(harmonySourceSupport.ProviderUrl))
+            {
+                value = harmonySourceSupport.ProviderUrl.Trim();
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(harmonySourceSupport.LookupQuery))
+            {
+                value = harmonySourceSupport.LookupQuery.Trim();
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(harmonySourceSupport.LookupArtist)
+                && !string.IsNullOrWhiteSpace(harmonySourceSupport.LookupAlbum))
+            {
+                value = $"{harmonySourceSupport.LookupArtist.Trim()} {harmonySourceSupport.LookupAlbum.Trim()}";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetBandcampSourceUrl(
+            HostHarmonySourceSupport? harmonySourceSupport,
+            IReadOnlyDictionary<string, string?> capturedIdentifiers,
+            out string? value)
+        {
+            value = null;
+            if (harmonySourceSupport != null)
+            {
+                if (harmonySourceSupport.Supported == true
+                    && string.Equals(harmonySourceSupport.MatchedProvider, "harmony", StringComparison.Ordinal)
+                    && !string.IsNullOrWhiteSpace(harmonySourceSupport.ProviderUrl))
+                {
+                    value = harmonySourceSupport.ProviderUrl.Trim();
+                    return true;
+                }
+
+                return false;
+            }
+
+            return TryGetIdentifier(capturedIdentifiers, "albumUrl", out value);
         }
 
         private static OperatorActionTokenService CreateFallbackTokenService(Func<DateTimeOffset>? clock)

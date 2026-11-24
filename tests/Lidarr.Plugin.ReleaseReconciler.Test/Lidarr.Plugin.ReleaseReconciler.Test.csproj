@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Disable analyzers inherited from Lidarr's Directory.Build.props -->
+    <EnableAnalyzers>false</EnableAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Moq" Version="4.18.4" />
+    <PackageReference Include="NLog" Version="5.4.0" Aliases="global,release_reconciler_nlog" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Lidarr.Plugin.ReleaseReconciler.csproj" />
+    <ProjectReference Include="..\..\ext\Lidarr\src\NzbDrone.Core\Lidarr.Core.csproj" />
+    <ProjectReference Include="..\..\ext\Lidarr\src\NzbDrone.Common\Lidarr.Common.csproj" />
+  </ItemGroup>
+
+
+</Project>

@@ -40,6 +40,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
         {
             if (!File.Exists(SettingsPath))
             {
+                _logger.Info("Release reconciler notification settings file not found at path={0}; using defaults.", SettingsPath);
                 return new ReconciliationNotificationSettings().Normalize();
             }
 
