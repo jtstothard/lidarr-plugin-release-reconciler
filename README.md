@@ -12,6 +12,14 @@ git submodule update --init --recursive
 dotnet build Lidarr.Plugin.ReleaseReconciler.csproj -c Release /p:NuGetAudit=false /p:RunAnalyzers=false /p:RunAnalyzersDuringBuild=false /p:EnableNETAnalyzers=false /p:EnforceCodeStyleInBuild=false /p:TreatWarningsAsErrors=false /p:NoWarn=SA1200%3BNU1902
 ```
 
+## Test
+
+The xUnit suite builds against the same `ext/Lidarr` submodule:
+
+```bash
+dotnet test tests/Lidarr.Plugin.ReleaseReconciler.Test/Lidarr.Plugin.ReleaseReconciler.Test.csproj /p:NuGetAudit=false /p:RunAnalyzers=false /p:TreatWarningsAsErrors=false /p:NoWarn=SA1200%3BNU1902%3BCS1591
+```
+
 ## Install
 
 Copy the built plugin files into:
