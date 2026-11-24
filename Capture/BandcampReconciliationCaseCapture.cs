@@ -1,10 +1,12 @@
+extern alias release_reconciler_nlog;
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using NLog;
-using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
+using Logger = release_reconciler_nlog::NLog.Logger;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Cases;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Notifications;
 
 namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
 {
@@ -12,12 +14,22 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
     {
         public const string BandcampDownloadSourceSeam = "bandcamp-download-client";
 
-        private readonly IReconciliationCaseStore _caseStore;
+        private readonly HostReconciliationCaseCapture _hostCapture;
         private readonly Logger _logger;
 
-        public BandcampReconciliationCaseCapture(IReconciliationCaseStore caseStore, Logger logger)
+        public BandcampReconciliationCaseCapture(
+            IReconciliationCaseStore caseStore,
+            Logger logger,
+            IHostMusicBrainzContextResolver? hostMusicBrainzContextResolver = null,
+            NotificationSettingsStore? notificationSettingsStore = null,
+            ReconciliationNotificationDispatcher? notificationDispatcher = null)
+            : this(new HostReconciliationCaseCapture(caseStore, logger, hostMusicBrainzContextResolver, notificationSettingsStore, notificationDispatcher), logger)
         {
-            _caseStore = caseStore ?? throw new ArgumentNullException(nameof(caseStore));
+        }
+
+        internal BandcampReconciliationCaseCapture(HostReconciliationCaseCapture hostCapture, Logger logger)
+        {
+            _hostCapture = hostCapture ?? throw new ArgumentNullException(nameof(hostCapture));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -26,86 +38,77 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
             ArgumentNullException.ThrowIfNull(evidence);
             ArgumentNullException.ThrowIfNull(evidence.RetagContext);
 
-            var normalizedPhase = DeterminePhase(evidence);
-            var capturedIdentifiers = BuildCapturedIdentifiers(evidence);
-            var structuralEvidence = BuildStructuralEvidence(evidence);
-            var capturedAtUtc = DetermineCapturedAtUtc(evidence);
-            var diagnosticSummary = BuildDiagnosticSummary(evidence, normalizedPhase);
+            var request = BuildRequest(evidence);
 
             _logger.Info(
-                "Capturing Bandcamp reconciliation evidence: seam={0}, phase={1}, status={2}, downloadId={3}, albumMbId={4}, preferredReleaseMbId={5}, trackCount={6}",
-                BandcampDownloadSourceSeam,
-                normalizedPhase,
-                NormalizeOrFallback(evidence.QueueStatus, "Unknown"),
-                NormalizeOrFallback(evidence.DownloadId, "-"),
-                NormalizeOrFallback(evidence.RetagContext.AlbumMusicBrainzId, "-"),
-                NormalizeOrFallback(evidence.RetagContext.PreferredRelease?.ReleaseMusicBrainzId, "-"),
-                structuralEvidence.TrackCount);
+                "Adapting Bandcamp reconciliation evidence into host capture request: seam={0}, phase={1}, status={2}, downloadId={3}, albumMbId={4}, preferredReleaseMbId={5}, trackCount={6}",
+                request.SourceSeam,
+                request.Phase,
+                NormalizeOrFallback(request.Status, "none"),
+                NormalizeOrFallback(request.DownloadId, "-"),
+                NormalizeOrFallback(evidence.RetagContext.AlbumMusicBrainzId, "none"),
+                NormalizeOrFallback(evidence.RetagContext.PreferredRelease?.ReleaseMusicBrainzId, "none"),
+                request.StructuralEvidence?.TrackCount ?? 0);
 
-            if (string.Equals(normalizedPhase, "guidance-needed", StringComparison.Ordinal))
-            {
-                _logger.Warn(
-                    "Bandcamp reconciliation evidence lacks release specificity: downloadId={0}, title={1}, albumUrl={2}, recordingMbids={3}, releaseTrackMbids={4}",
-                    NormalizeOrFallback(evidence.DownloadId, "-"),
-                    NormalizeOrFallback(evidence.Title, "-"),
-                    NormalizeOrFallback(evidence.AlbumUrl, "-"),
-                    structuralEvidence.RecordingMusicBrainzIds.Count.ToString(CultureInfo.InvariantCulture),
-                    structuralEvidence.ReleaseTrackMusicBrainzIds.Count.ToString(CultureInfo.InvariantCulture));
-            }
-
-            var reconciliationCase = new ReconciliationCase(
-                sourceSeam: BandcampDownloadSourceSeam,
-                phase: normalizedPhase,
-                capturedIdentifiers: capturedIdentifiers,
-                structuralEvidence: structuralEvidence,
-                downloadId: evidence.DownloadId,
-                outputPath: evidence.OutputPath,
-                diagnosticSummary: diagnosticSummary,
-                lastError: DetermineLastError(normalizedPhase, evidence.ErrorMessage),
-                capturedAtUtc: capturedAtUtc);
-
-            try
-            {
-                return _caseStore.Save(reconciliationCase);
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-            {
-                _logger.Error(ex, "Failed to capture Bandcamp reconciliation evidence for downloadId={0}.", NormalizeOrFallback(evidence.DownloadId, "-"));
-                throw;
-            }
+            return _hostCapture.Capture(request);
         }
 
-        private static IReadOnlyDictionary<string, string?> BuildCapturedIdentifiers(BandcampMismatchEvidence evidence)
+        private static HostReconciliationCaptureRequest BuildRequest(BandcampMismatchEvidence evidence)
+        {
+            var phase = DeterminePhase(evidence);
+
+            return new HostReconciliationCaptureRequest
+            {
+                SourceSeam = BandcampDownloadSourceSeam,
+                DownloadId = evidence.DownloadId,
+                Phase = phase,
+                Status = evidence.QueueStatus,
+                OutputPath = evidence.OutputPath,
+                DiagnosticSummary = BuildDiagnosticSummary(evidence, phase),
+                LastError = DetermineLastError(phase, evidence.ErrorMessage),
+                QueuedAtUtc = evidence.QueuedAtUtc,
+                CompletedAtUtc = evidence.CompletedAtUtc,
+                CapturedAtUtc = DetermineCapturedAtUtc(evidence),
+                CapturedIdentifiers = BuildCapturedIdentifiers(evidence),
+                SourceMetadata = BuildSourceMetadata(evidence),
+                StructuralEvidence = BuildStructuralEvidence(evidence)
+            };
+        }
+
+        private static Dictionary<string, string?> BuildCapturedIdentifiers(BandcampMismatchEvidence evidence)
         {
             var identifiers = new Dictionary<string, string?>(StringComparer.Ordinal);
             AddIdentifier(identifiers, "artistName", evidence.RetagContext.ArtistName);
             AddIdentifier(identifiers, "artistMusicBrainzId", evidence.RetagContext.ArtistMusicBrainzId);
             AddIdentifier(identifiers, "albumTitle", evidence.RetagContext.AlbumTitle);
             AddIdentifier(identifiers, "albumMusicBrainzId", evidence.RetagContext.AlbumMusicBrainzId);
-            AddIdentifier(identifiers, "albumType", evidence.RetagContext.AlbumType);
-            AddIdentifier(identifiers, "albumDisambiguation", evidence.RetagContext.AlbumDisambiguation);
-            AddIdentifier(identifiers, "albumReleaseDateUtc", evidence.RetagContext.AlbumReleaseDateUtc?.ToString("O", CultureInfo.InvariantCulture));
             AddIdentifier(identifiers, "preferredReleaseMusicBrainzId", evidence.RetagContext.PreferredRelease?.ReleaseMusicBrainzId);
-            AddIdentifier(identifiers, "releaseArtistMusicBrainzId", evidence.RetagContext.PreferredRelease?.ReleaseArtistMusicBrainzId);
-            AddIdentifier(identifiers, "albumUrl", evidence.AlbumUrl);
-            AddIdentifier(identifiers, "downloadTitle", evidence.Title);
-
-            if (identifiers.Count == 0)
-            {
-                throw new ArgumentException("Bandcamp mismatch evidence did not include any stable identifiers.", nameof(evidence));
-            }
-
+            AddIdentifier(identifiers, "preferredReleaseArtistMusicBrainzId", evidence.RetagContext.PreferredRelease?.ReleaseArtistMusicBrainzId);
             return identifiers;
         }
 
-        private static ReconciliationEvidence BuildStructuralEvidence(BandcampMismatchEvidence evidence)
+        private static Dictionary<string, string?> BuildSourceMetadata(BandcampMismatchEvidence evidence)
         {
-            return new ReconciliationEvidence
+            var metadata = new Dictionary<string, string?>(StringComparer.Ordinal);
+            AddIdentifier(metadata, "title", evidence.Title);
+            AddIdentifier(metadata, "provider", "harmony");
+            AddIdentifier(metadata, "providerUrl", evidence.AlbumUrl);
+            AddIdentifier(metadata, "lookupArtist", evidence.RetagContext.ArtistName);
+            AddIdentifier(metadata, "lookupAlbum", evidence.RetagContext.AlbumTitle);
+            AddIdentifier(metadata, "queuePhase", evidence.QueuePhase);
+            AddIdentifier(metadata, "releaseStatus", evidence.RetagContext.PreferredRelease?.ReleaseStatus);
+            AddIdentifier(metadata, "releaseSpecificity", HasReleaseSpecificity(evidence.RetagContext) ? "preferred-release" : "guidance-needed");
+            return metadata;
+        }
+
+        private static HostReconciliationStructuralEvidence BuildStructuralEvidence(BandcampMismatchEvidence evidence)
+        {
+            return new HostReconciliationStructuralEvidence
             {
                 TrackCount = evidence.RetagContext.Tracks.Count,
                 PreferredRelease = evidence.RetagContext.PreferredRelease == null
                     ? null
-                    : new PreferredReleaseReconciliationEvidence
+                    : new HostPreferredReleaseEvidence
                     {
                         ReleaseMusicBrainzId = evidence.RetagContext.PreferredRelease.ReleaseMusicBrainzId,
                         ReleaseArtistMusicBrainzId = evidence.RetagContext.PreferredRelease.ReleaseArtistMusicBrainzId,
@@ -113,10 +116,12 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
                         Label = evidence.RetagContext.PreferredRelease.Label,
                         ReleaseDateUtc = evidence.RetagContext.PreferredRelease.ReleaseDateUtc,
                         DiscCount = evidence.RetagContext.PreferredRelease.DiscCount,
-                        MediaByDisc = new Dictionary<int, string>(evidence.RetagContext.PreferredRelease.MediaByDisc)
+                        MediaByDisc = evidence.RetagContext.PreferredRelease.MediaByDisc
+                            .Where(static pair => !string.IsNullOrWhiteSpace(pair.Value))
+                            .ToDictionary(static pair => pair.Key, static pair => pair.Value.Trim())
                     },
                 Tracks = evidence.RetagContext.Tracks
-                    .Select(static track => new ReconciliationTrackEvidence
+                    .Select(static track => new HostTrackEvidence
                     {
                         AbsoluteTrackNumber = track.AbsoluteTrackNumber,
                         MediumNumber = track.MediumNumber,
@@ -125,7 +130,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
                         ReleaseTrackMusicBrainzId = track.ReleaseTrackMusicBrainzId
                     })
                     .ToList()
-            }.Normalize();
+            };
         }
 
         private static string DeterminePhase(BandcampMismatchEvidence evidence)
@@ -141,12 +146,26 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
                 return normalizedQueuePhase;
             }
 
-            return string.IsNullOrWhiteSpace(evidence.ErrorMessage) ? "captured" : "failed";
+            var normalizedQueueStatus = NormalizeOptional(evidence.QueueStatus);
+            if (normalizedQueueStatus != null)
+            {
+                return normalizedQueueStatus.Replace(' ', '-').ToLowerInvariant();
+            }
+
+            return "captured";
         }
 
         private static string? DetermineLastError(string phase, string? errorMessage)
         {
-            return string.Equals(phase, "failed", StringComparison.Ordinal) ? errorMessage : null;
+            var normalized = NormalizeOptional(errorMessage);
+            if (normalized == null)
+            {
+                return null;
+            }
+
+            return string.Equals(phase, "evaluated", StringComparison.Ordinal)
+                ? null
+                : normalized;
         }
 
         private static DateTimeOffset DetermineCapturedAtUtc(BandcampMismatchEvidence evidence)
@@ -174,19 +193,14 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
             AddDiagnosticPart(parts, "album", evidence.RetagContext.AlbumTitle);
             AddDiagnosticPart(parts, "albumUrl", evidence.AlbumUrl);
             AddDiagnosticPart(parts, "releaseStatus", evidence.RetagContext.PreferredRelease?.ReleaseStatus);
-            AddDiagnosticPart(parts, "label", evidence.RetagContext.PreferredRelease?.Label);
-            AddDiagnosticPart(parts, "discCount", evidence.RetagContext.PreferredRelease?.DiscCount.ToString(CultureInfo.InvariantCulture));
-            AddDiagnosticPart(parts, "genres", evidence.RetagContext.Genres.Length > 0 ? string.Join(",", evidence.RetagContext.Genres) : null);
-            AddDiagnosticPart(parts, "albumDisambiguation", evidence.RetagContext.AlbumDisambiguation);
-            AddDiagnosticPart(parts, "completedAtUtc", evidence.CompletedAtUtc?.ToString("O", CultureInfo.InvariantCulture));
 
             return string.Join("; ", parts);
         }
 
         private static bool HasReleaseSpecificity(BandcampRetagEvidence retagContext)
         {
-            ArgumentNullException.ThrowIfNull(retagContext);
-            return !string.IsNullOrWhiteSpace(retagContext.AlbumMusicBrainzId)
+            return retagContext != null
+                && !string.IsNullOrWhiteSpace(retagContext.AlbumMusicBrainzId)
                 && !string.IsNullOrWhiteSpace(retagContext.PreferredRelease?.ReleaseMusicBrainzId);
         }
 
@@ -208,14 +222,14 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Capture
             }
         }
 
-        private static string? NormalizeOptional(string? value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-        }
-
         private static string NormalizeOrFallback(string? value, string fallback)
         {
             return NormalizeOptional(value) ?? fallback;
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
     }
 }

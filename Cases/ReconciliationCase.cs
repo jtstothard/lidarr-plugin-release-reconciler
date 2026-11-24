@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Capture;
 
 namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
 {
@@ -18,6 +19,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
             string? outputPath = null,
             string? diagnosticSummary = null,
             string? lastError = null,
+            HostImportFailureClassification? importFailureClassification = null,
+            HostHarmonySourceSupport? harmonySourceSupport = null,
             string? caseId = null,
             DateTimeOffset? capturedAtUtc = null,
             DateTimeOffset? updatedAtUtc = null,
@@ -34,6 +37,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
             OutputPath = NormalizeOptionalValue(outputPath);
             DiagnosticSummary = NormalizeOptionalValue(diagnosticSummary);
             LastError = NormalizeOptionalValue(lastError);
+            ImportFailureClassification = NormalizeImportFailureClassification(importFailureClassification);
+            HarmonySourceSupport = NormalizeHarmonySourceSupport(harmonySourceSupport);
             CapturedAtUtc = capturedAtUtc;
             UpdatedAtUtc = updatedAtUtc;
             EvaluationResult = NormalizeEvaluationResult(evaluationResult);
@@ -62,6 +67,10 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
         public string? DiagnosticSummary { get; }
 
         public string? LastError { get; }
+
+        public HostImportFailureClassification? ImportFailureClassification { get; }
+
+        public HostHarmonySourceSupport? HarmonySourceSupport { get; }
 
         public DateTimeOffset? CapturedAtUtc { get; }
 
@@ -143,6 +152,30 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
             }
 
             var normalized = evaluationResult.Normalize();
+            normalized.ValidatePersistedShape();
+            return normalized;
+        }
+
+        private static HostImportFailureClassification? NormalizeImportFailureClassification(HostImportFailureClassification? importFailureClassification)
+        {
+            if (importFailureClassification == null)
+            {
+                return null;
+            }
+
+            var normalized = importFailureClassification.Normalize();
+            normalized.ValidatePersistedShape();
+            return normalized;
+        }
+
+        private static HostHarmonySourceSupport? NormalizeHarmonySourceSupport(HostHarmonySourceSupport? harmonySourceSupport)
+        {
+            if (harmonySourceSupport == null)
+            {
+                return null;
+            }
+
+            var normalized = harmonySourceSupport.Normalize();
             normalized.ValidatePersistedShape();
             return normalized;
         }

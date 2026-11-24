@@ -65,8 +65,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Evidence
             var correctionLinks = ReconciliationNotificationBuilder.BuildSupplementalEvidenceLinks(
                 settings,
                 snapshot.CapturedIdentifiers,
-                displayArtist,
-                displayAlbum,
+                snapshot.HarmonySourceSupport,
                 evaluation,
                 BuildNotificationCandidates(evaluation));
 

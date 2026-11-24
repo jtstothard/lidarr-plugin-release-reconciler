@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Capture;
 
 namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
 {
@@ -20,7 +21,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
             "(?<label>token|api[-_ ]?key|signature|sig)\\s*[:=]\\s*(?<value>[^\\r\\n;]+)",
             RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
@@ -33,6 +34,10 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
         public Dictionary<string, string?> CapturedIdentifiers { get; init; } = new(StringComparer.Ordinal);
 
         public ReconciliationEvidence? StructuralEvidence { get; init; }
+
+        public HostImportFailureClassification? ImportFailureClassification { get; init; }
+
+        public HostHarmonySourceSupport? HarmonySourceSupport { get; init; }
 
         public ReconciliationEvaluationResult? EvaluationResult { get; init; }
 
@@ -78,6 +83,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
                     .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
                     .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal),
                 StructuralEvidence = reconciliationCase.StructuralEvidence.Normalize(),
+                ImportFailureClassification = reconciliationCase.ImportFailureClassification?.Normalize(),
+                HarmonySourceSupport = reconciliationCase.HarmonySourceSupport?.Normalize(),
                 EvaluationResult = reconciliationCase.EvaluationResult?.Normalize(),
                 NotificationState = reconciliationCase.NotificationState?.Normalize(),
                 OperatorActionState = reconciliationCase.OperatorActionState?.Normalize(),
@@ -126,6 +133,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Cases
             }
 
             StructuralEvidence.ValidatePersistedShape();
+            ImportFailureClassification?.ValidatePersistedShape();
+            HarmonySourceSupport?.ValidatePersistedShape();
             EvaluationResult?.ValidatePersistedShape();
             NotificationState?.ValidatePersistedShape();
             OperatorActionState?.ValidatePersistedShape();
