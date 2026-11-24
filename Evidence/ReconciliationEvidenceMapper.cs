@@ -11,9 +11,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Evidence
 {
     public sealed class ReconciliationEvidenceMapper : IMapHttpRequestsToDisk
     {
-        private static readonly Regex EvidencePathRegex = new(
-            "^/release-reconciler/evidence/(?<token>[A-Za-z0-9_-]+)/index\\.html$",
-            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex EvidencePathRegex = SignedLinkRoutes.CreatePathRegex(SignedLinkRoutes.EvidencePagePrefix);
 
         private readonly IReconciliationCaseStore _caseStore;
         private readonly ReconciliationEvidenceTokenService _tokenService;

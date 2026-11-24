@@ -8,15 +8,14 @@ using Microsoft.AspNetCore.Mvc;
 using NLog;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Cases;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Notifications;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Switching;
 
 namespace NzbDrone.Core.Plugins.ReleaseReconciler.Actions
 {
     public sealed class ReconciliationOperatorActionMapper : IMapHttpRequestsToDisk
     {
-        private static readonly Regex ActionPathRegex = new(
-            "^/release-reconciler/action/(?<token>[A-Za-z0-9_-]+)/index\\.html$",
-            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex ActionPathRegex = SignedLinkRoutes.CreatePathRegex(SignedLinkRoutes.OperatorActionPrefix);
 
         private readonly IReconciliationCaseStore _caseStore;
         private readonly OperatorActionTokenService _tokenService;

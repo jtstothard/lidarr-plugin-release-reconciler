@@ -353,8 +353,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Notifications
 
         private static string BuildSignedPathUrl(Uri baseUri, string path, string token)
         {
-            var relative = $"{path.TrimEnd('/')}/{Uri.EscapeDataString(token)}";
-            return new Uri(baseUri, relative).ToString();
+            return new Uri(baseUri, SignedLinkRoutes.BuildPath(path, token)).ToString();
         }
 
         internal static string BuildHarmonySearchUrl(string baseUrl, string query)
