@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Actions;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Candidates;
+using NzbDrone.Core.Plugins.ReleaseReconciler.Capture;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Cases;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Evidence;
 using NzbDrone.Core.Plugins.ReleaseReconciler.Notifications;
@@ -55,7 +56,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             var token = tokenService.Issue(snapshot.CaseId, Now.AddMinutes(30)).Token;
             var controller = CreateController(new ReconciliationEvidenceMapper(store, tokenService, settings, _logger));
 
-            var result = await controller.IndexContent(BuildEvidencePath(token));
+            var result = await controller.Index(BuildEvidencePath(token));
 
             var page = Assert.IsType<ReconciliationEvidencePage>(result);
             Assert.Equal(200, page.StatusCode);
@@ -84,10 +85,13 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             var tokenService = CreateEvidenceTokenService(() => Now);
             var snapshot = store.Save(CreateCase(caseId: "case-evidence-invalid"));
             var issued = tokenService.Issue(snapshot.CaseId, Now.AddMinutes(30)).Token;
-            var tamperedToken = issued[..^1] + (issued.EndsWith("A", StringComparison.Ordinal) ? "B" : "A");
+            // Flip a middle character: the last base64url character can carry only
+            // padding bits, so changing it may decode to the same bytes.
+            var middle = issued.Length / 2;
+            var tamperedToken = issued[..middle] + (issued[middle] == 'A' ? 'B' : 'A') + issued[(middle + 1)..];
             var controller = CreateController(new ReconciliationEvidenceMapper(store, tokenService, settings, _logger));
 
-            var result = await controller.IndexContent(BuildEvidencePath(tamperedToken));
+            var result = await controller.Index(BuildEvidencePath(tamperedToken));
 
             var page = Assert.IsType<ReconciliationEvidencePage>(result);
             Assert.Equal(400, page.StatusCode);
@@ -107,7 +111,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             var token = tokenService.Issue(snapshot.CaseId, Now.AddMinutes(-5)).Token;
             var controller = CreateController(new ReconciliationEvidenceMapper(store, tokenService, settings, _logger));
 
-            var result = await controller.IndexContent(BuildEvidencePath(token));
+            var result = await controller.Index(BuildEvidencePath(token));
 
             var page = Assert.IsType<ReconciliationEvidencePage>(result);
             Assert.Equal(410, page.StatusCode);
@@ -126,7 +130,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             var token = tokenService.Issue("missing-case", Now.AddMinutes(30)).Token;
             var controller = CreateController(new ReconciliationEvidenceMapper(store, tokenService, settings, _logger));
 
-            var result = await controller.IndexContent(BuildEvidencePath(token));
+            var result = await controller.Index(BuildEvidencePath(token));
 
             var page = Assert.IsType<ReconciliationEvidencePage>(result);
             Assert.Equal(404, page.StatusCode);
@@ -148,13 +152,13 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             var actionMapper = new ReconciliationOperatorActionMapper(store, actionTokenService, _logger, () => Now.AddMinutes(1));
             var controller = CreateController(evidenceMapper, actionMapper);
 
-            Assert.True(evidenceMapper.CanHandle("/Content/" + BuildEvidencePath(evidenceToken)));
-            Assert.False(evidenceMapper.CanHandle("/Content/" + BuildActionPath(actionToken)));
-            Assert.True(actionMapper.CanHandle("/Content/" + BuildActionPath(actionToken)));
-            Assert.False(actionMapper.CanHandle("/Content/" + BuildEvidencePath(evidenceToken)));
+            Assert.True(evidenceMapper.CanHandle("/" + BuildEvidencePath(evidenceToken)));
+            Assert.False(evidenceMapper.CanHandle("/" + BuildActionPath(actionToken)));
+            Assert.True(actionMapper.CanHandle("/" + BuildActionPath(actionToken)));
+            Assert.False(actionMapper.CanHandle("/" + BuildEvidencePath(evidenceToken)));
 
-            var evidenceResult = await controller.IndexContent(BuildEvidencePath(evidenceToken));
-            var actionResult = await controller.IndexContent(BuildActionPath(actionToken));
+            var evidenceResult = await controller.Index(BuildEvidencePath(evidenceToken));
+            var actionResult = await controller.Index(BuildActionPath(actionToken));
 
             Assert.IsType<ReconciliationEvidencePage>(evidenceResult);
             Assert.IsType<OperatorActionResultPage>(actionResult);
@@ -208,12 +212,12 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
 
         private static string BuildEvidencePath(string token)
         {
-            return $"release-reconciler/evidence/{token}";
+            return $"release-reconciler/evidence/{token}/index.html";
         }
 
         private static string BuildActionPath(string token)
         {
-            return $"release-reconciler/action/{token}";
+            return $"release-reconciler/action/{token}/index.html";
         }
 
         private static ReconciliationNotificationSettings CreateNotificationSettings()
@@ -221,8 +225,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
             return new ReconciliationNotificationSettings
             {
                 PublicBaseUrl = "https://operator.example.test/",
-                OperatorActionPath = "/content/release-reconciler/action",
-                EvidencePagePath = "/content/release-reconciler/evidence",
+                OperatorActionPath = "/release-reconciler/action",
+                EvidencePagePath = "/release-reconciler/evidence",
                 HarmonySearchBaseUrl = "https://api.lidarr.audio/api/v0.4/search"
             };
         }
@@ -278,6 +282,13 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Evidence
                 outputPath: "/music/Boards of Canada/Music Has the Right to Children",
                 diagnosticSummary: "Lookup returned one same-group candidate and one fallback candidate.",
                 lastError: null,
+                harmonySourceSupport: new HostHarmonySourceSupport
+                {
+                    Supported = true,
+                    MatchedRule = "harmony-provider-url",
+                    MatchedProvider = "harmony",
+                    ProviderUrl = "https://artist.example.test/music-has-the-right-to-children"
+                },
                 caseId: caseId,
                 capturedAtUtc: Now.AddMinutes(-30),
                 updatedAtUtc: Now.AddMinutes(-5),

@@ -43,7 +43,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var issued = tokenService.Issue("case-snooze", ReconciliationOperatorActionKinds.Snooze, Now.AddHours(4));
             var controller = CreateController(store, tokenService, () => Now.AddMinutes(2));
 
-            var result = await controller.IndexContent($"release-reconciler/action/{issued.Token}");
+            var result = await controller.Index($"release-reconciler/action/{issued.Token}/index.html");
 
             var page = Assert.IsType<OperatorActionResultPage>(result);
             Assert.Equal(200, page.StatusCode);
@@ -69,7 +69,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var invalidToken = CorruptProtectedToken(issued.Token);
             var controller = CreateController(store, tokenService, () => Now);
 
-            var result = await controller.IndexContent($"release-reconciler/action/{invalidToken}");
+            var result = await controller.Index($"release-reconciler/action/{invalidToken}/index.html");
 
             var page = Assert.IsType<OperatorActionResultPage>(result);
             Assert.Equal(400, page.StatusCode);
@@ -87,7 +87,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var issued = tokenService.Issue("case-expired", ReconciliationOperatorActionKinds.Snooze, Now.AddMinutes(-1));
             var controller = CreateController(store, tokenService, () => Now);
 
-            var result = await controller.IndexContent($"release-reconciler/action/{issued.Token}");
+            var result = await controller.Index($"release-reconciler/action/{issued.Token}/index.html");
 
             var page = Assert.IsType<OperatorActionResultPage>(result);
             Assert.Equal(410, page.StatusCode);
@@ -107,8 +107,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var issued = tokenService.Issue("case-replay", ReconciliationOperatorActionKinds.Ignore, Now.AddHours(1));
             var controller = CreateController(store, tokenService, () => Now);
 
-            var first = await controller.IndexContent($"release-reconciler/action/{issued.Token}");
-            var second = await controller.IndexContent($"release-reconciler/action/{issued.Token}");
+            var first = await controller.Index($"release-reconciler/action/{issued.Token}/index.html");
+            var second = await controller.Index($"release-reconciler/action/{issued.Token}/index.html");
 
             Assert.Equal(200, Assert.IsType<OperatorActionResultPage>(first).StatusCode);
             Assert.Equal(409, Assert.IsType<OperatorActionResultPage>(second).StatusCode);
@@ -125,7 +125,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var missingToken = tokenService.Issue("case-missing", ReconciliationOperatorActionKinds.Ignore, Now.AddHours(1));
             var missingController = CreateController(missingStore, tokenService, () => Now);
 
-            var missing = await missingController.IndexContent($"release-reconciler/action/{missingToken.Token}");
+            var missing = await missingController.Index($"release-reconciler/action/{missingToken.Token}/index.html");
             Assert.Equal(404, Assert.IsType<OperatorActionResultPage>(missing).StatusCode);
 
             var unsupportedStore = CreateStore("unsupported-store");
@@ -139,7 +139,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
                 ExpiresAtUtc = Now.AddHours(2)
             });
             var unsupportedController = CreateController(unsupportedStore, tokenService, () => Now);
-            var unsupported = await unsupportedController.IndexContent($"release-reconciler/action/{unsupportedToken}");
+            var unsupported = await unsupportedController.Index($"release-reconciler/action/{unsupportedToken}/index.html");
 
             Assert.Equal(400, Assert.IsType<OperatorActionResultPage>(unsupported).StatusCode);
             var unsupportedSnapshot = Assert.IsType<ReconciliationCaseSnapshot>(unsupportedStore.Get("case-unsupported"));
@@ -154,7 +154,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
                 }));
             var alreadyAppliedToken = tokenService.Issue("case-applied", ReconciliationOperatorActionKinds.Ignore, Now.AddHours(3));
             var appliedController = CreateController(appliedStore, tokenService, () => Now);
-            var alreadyApplied = await appliedController.IndexContent($"release-reconciler/action/{alreadyAppliedToken.Token}");
+            var alreadyApplied = await appliedController.Index($"release-reconciler/action/{alreadyAppliedToken.Token}/index.html");
 
             Assert.Equal(409, Assert.IsType<OperatorActionResultPage>(alreadyApplied).StatusCode);
             var appliedSnapshot = Assert.IsType<ReconciliationCaseSnapshot>(appliedStore.Get("case-applied"));
@@ -172,7 +172,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var token = CreateApproveSwitchToken(tokenService, "case-approve", Now.AddHours(2));
             var controller = CreateController(store, tokenService, () => Now, CreateReleaseSwitchApprovalService(store));
 
-            var result = await controller.IndexContent($"release-reconciler/action/{token}");
+            var result = await controller.Index($"release-reconciler/action/{token}/index.html");
 
             var page = Assert.IsType<OperatorActionResultPage>(result);
             Assert.Equal(200, page.StatusCode);
@@ -197,7 +197,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var token = CreateApproveSwitchToken(tokenService, "case-approve-expired", Now.AddMinutes(-1));
             var controller = CreateController(store, tokenService, () => Now, CreateReleaseSwitchApprovalService(store));
 
-            var result = await controller.IndexContent($"release-reconciler/action/{token}");
+            var result = await controller.Index($"release-reconciler/action/{token}/index.html");
 
             var page = Assert.IsType<OperatorActionResultPage>(result);
             Assert.Equal(410, page.StatusCode);
@@ -218,8 +218,8 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Actions
             var token = CreateApproveSwitchToken(tokenService, "case-approve-replay", Now.AddHours(2));
             var controller = CreateController(store, tokenService, () => Now, CreateReleaseSwitchApprovalService(store));
 
-            var first = await controller.IndexContent($"release-reconciler/action/{token}");
-            var second = await controller.IndexContent($"release-reconciler/action/{token}");
+            var first = await controller.Index($"release-reconciler/action/{token}/index.html");
+            var second = await controller.Index($"release-reconciler/action/{token}/index.html");
 
             Assert.Equal(200, Assert.IsType<OperatorActionResultPage>(first).StatusCode);
             Assert.Equal(409, Assert.IsType<OperatorActionResultPage>(second).StatusCode);

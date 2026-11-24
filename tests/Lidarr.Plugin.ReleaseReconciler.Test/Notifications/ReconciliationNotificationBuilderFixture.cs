@@ -27,9 +27,9 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Notifications
             Assert.Equal("signed-readonly-path", envelope.EvidenceUrlKind);
             Assert.Equal(Now.AddMinutes(240), envelope.EvidenceTokenExpiresAtUtc);
             Assert.Equal(2, envelope.Actions.Count);
-            Assert.All(envelope.Actions, action => Assert.Contains("/content/release-reconciler/action/", action.Url, StringComparison.Ordinal));
+            Assert.All(envelope.Actions, action => Assert.StartsWith("https://lidarr.example/release-reconciler/action/", action.Url, StringComparison.Ordinal));
             Assert.All(envelope.Actions, action => Assert.DoesNotContain("token=", action.Url, StringComparison.Ordinal));
-            Assert.Contains(envelope.EvidenceLinks, link => link.Label == "Evidence Page" && link.Url.StartsWith("https://lidarr.example/content/release-reconciler/evidence/", StringComparison.Ordinal));
+            Assert.Contains(envelope.EvidenceLinks, link => link.Label == "Evidence Page" && link.Url.StartsWith("https://lidarr.example/release-reconciler/evidence/", StringComparison.Ordinal));
             Assert.Contains(envelope.EvidenceLinks, link => link.Label == "Bandcamp Source" && link.Url == "https://artist.bandcamp.com/album/example");
             Assert.Contains(envelope.EvidenceLinks, link => link.Label == "MusicBrainz Release" && link.Url.Contains("release-mbid-1", StringComparison.Ordinal));
             Assert.Contains(envelope.EvidenceLinks, link => link.Label == "MusicBrainz Release Group" && link.Url.Contains("album-mbid-1", StringComparison.Ordinal));
@@ -206,7 +206,7 @@ namespace NzbDrone.Core.Plugins.ReleaseReconciler.Test.Notifications
             Assert.Equal(3, envelope.Actions.Count);
             var approveAction = Assert.Single(envelope.Actions.Where(action => action.Action == ReconciliationOperatorActionKinds.ApproveSwitch));
             Assert.Equal("Approve switch", approveAction.Label);
-            Assert.Contains("/content/release-reconciler/action/", approveAction.Url, StringComparison.Ordinal);
+            Assert.StartsWith("https://lidarr.example/release-reconciler/action/", approveAction.Url, StringComparison.Ordinal);
             Assert.DoesNotContain("token=", approveAction.Url, StringComparison.Ordinal);
         }
 
